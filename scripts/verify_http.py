@@ -65,6 +65,7 @@ def scenario(
             rows = [json.loads(line) for line in target.read_text().splitlines()]
             assert completed.returncode == expected_exit, completed.stderr
             assert [r["status"] for r in rows] == expected_statuses, rows
+            assert all(r["attempts"]["tokenize"] == 0 for r in rows), rows
             if name in {"connection-drop", "503-recovery"}:
                 assert rows[0]["attempts"]["chat"] == 2, rows
             if name == "read-timeout":

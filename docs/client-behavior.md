@@ -2,6 +2,20 @@
 
 For setup and commands, start with the [README](../README.md).
 
+## Server compatibility
+
+By default the client calls only `/v1/chat/completions`, the endpoint in the
+assignment. Set `--model` (or `LLM_MODEL`) to the name configured by the server's
+operator; the default matches our deployment script's served-model alias.
+No model-discovery endpoint is required.
+
+The optional `--check-tokens` flag enables vLLM's `/tokenize` check using matching
+chat-template settings. If explicitly enabled, that route must work; failures
+are reported rather than silently bypassed. In the default mode, the server
+enforces context length and a rejected request becomes an error result without
+retries for HTTP 400. Neither mode silently truncates study text. Both retain
+the local text-size cap, 128 output-token limit, and sequential requests.
+
 ## What happens to the sample
 
 | Input | Result |
@@ -72,6 +86,6 @@ environment variables and redirects are disabled to keep the destination explici
 
 See [illustrative output](../examples/expected_results.jsonl). `input_index` is zero-based;
 `attempts` separates tokenization and generation calls. The example file's
-`example_only` marker, 200-token fixture, and zero timings distinguish it from
+`example_only` marker and zero timings distinguish it from
 measured output; actual CLI results do not contain the marker.
 

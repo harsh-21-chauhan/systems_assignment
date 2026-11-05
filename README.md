@@ -122,8 +122,17 @@ python summarize_pubmed.py --endpoint http://192.168.1.100:8000/v1/chat/completi
 python -m json.tool --json-lines results-live.jsonl
 ```
 
-The model name must match the server's `/v1/models` response. This client also
-requires `/tokenize` on the same server to check prompt length before generation.
+The model name must match the name configured on the server. Our Docker command
+sets it to `llama-3.3-70b-instruct`. If the company uses another name, replace the
+value after `--model` with the name they provide (or inspect `/v1/models` if available).
+The script does not require a model-discovery endpoint.
+
+**By default, only the supplied `/v1/chat/completions` endpoint is used.**
+If the server also supports vLLM's `/tokenize`, you can optionally add
+`--check-tokens` to reject oversized prompts before generation. Without that
+option, the server enforces its context limit and any rejection is saved as an
+error; input is never silently truncated. The local text-size cap, 128 output-token
+limit, and sequential requests remain in effect in both modes.
 If authentication is enabled, set `LLM_API_KEY` in your environment.
 For another run, use a new output filename or explicitly add `--overwrite`.
 

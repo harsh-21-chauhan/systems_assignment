@@ -5,6 +5,8 @@ Design proposal for review | 5 November 2026 | Implementation not started
 > Archived design snapshot from before implementation. The design was subsequently
 > approved; see [README](../README.md) and [validation](validation.md) for the current
 > implementation and measured results. The original PDF preserves the review-stage plan.
+> Compatibility update (6 November): `/tokenize` is now opt-in via `--check-tokens`;
+> the default client uses only the chat endpoint guaranteed in the assignment.
 
 REVIEW PLAN / 01
 

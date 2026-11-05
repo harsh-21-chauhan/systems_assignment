@@ -1,10 +1,26 @@
 # Validation record
 
-Local verification date: 5 November 2026 (Asia/Kolkata).
+Initial verification: 5 November 2026; compatibility update: 6 November 2026 (Asia/Kolkata).
 Environment: macOS ARM64, Conda environment `systems-assignment`, Python 3.11.
 Direct dependencies: HTTPX 0.28.1, pytest 8.3.5, Ruff 0.11.13.
 
-## Verified locally
+## Compatibility update: 6 November
+
+The default client now requires only `/v1/chat/completions`; `/tokenize` is
+opt-in with `--check-tokens`. The model name remains configurable with `--model`
+or `LLM_MODEL`, without requiring discovery calls.
+
+- **76 unit tests passed in 0.13 s**; Ruff lint and formatting passed.
+- The actual CLI used zero tokenization requests in all fast localhost checks.
+- Sample: two successes and one skip, 0.09 s.
+- Connection drop: recovered on generation attempt two, 2.78 s.
+- HTTP 503: recovered on generation attempt two, 2.52 s.
+- Real read timeout: expected error result, 0.22 s.
+
+The original 45-second observation below predates this change; the unchanged
+timeout configuration was not retested for 45 seconds in this update.
+
+## Initial local verification: 5 November
 
 | Check | Observed result |
 | --- | --- |

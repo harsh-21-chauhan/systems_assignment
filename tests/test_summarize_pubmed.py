@@ -12,7 +12,8 @@ import pytest
 import summarize_pubmed as app
 
 SAMPLE = Path(__file__).resolve().parents[1] / "data/pubmed_raw.json"
-CONFIG = app.Config(backoff_base=0, jitter=0)
+# Existing token-budget tests explicitly opt into the optional vLLM extension.
+CONFIG = app.Config(backoff_base=0, jitter=0, check_tokens=True)
 
 
 def completion(content="A reported benefit was accompanied by nausea.", finish="stop"):
@@ -59,6 +60,63 @@ def test_sample_and_payload():
     for i in (0, 2):
         assert calls[i][1]["messages"] == calls[i + 1][1]["messages"]
         assert calls[i][1]["add_generation_prompt"] is True
+
+
+def test_default_uses_only_promised_chat_endpoint():
+    calls = []
+
+    def chat_only(request):
+        calls.append(request.url.path)
+        assert str(request.url) == app.DEFAULT_ENDPOINT
+        payload = json.loads(request.content)
+        assert set(payload) == {"model", "messages", "temperature", "max_tokens", "stream", "n"}
+        return httpx.Response(200, json=completion())
+
+    status, rows = run(app.load_records(SAMPLE), chat_only, app.Config())
+    assert status == 0
+    assert calls == ["/v1/chat/completions"] * 2
+    assert [row["status"] for row in rows] == ["success", "success", "skipped"]
+    assert all(row["attempts"]["tokenize"] == 0 for row in rows)
+    assert all("prompt_tokens" not in row for row in rows)
+
+
+def test_custom_model_is_sent_without_discovery_request():
+    def handler(request):
+        assert request.url.path == "/v1/chat/completions"
+        assert json.loads(request.content)["model"] == "company-llama"
+        return httpx.Response(200, json=completion())
+
+    config = replace(app.Config(), model="company-llama")
+    status, rows = run([{"Abstract": "Outcome."}], handler, config)
+    assert status == 0 and rows[0]["model"] == "company-llama"
+
+
+def test_optional_token_check_flag_and_model_environment(monkeypatch):
+    monkeypatch.setenv("LLM_MODEL", "company-model")
+    assert app.parse_args([]).check_tokens is False
+    assert app.parse_args([]).model == "company-model"
+    args = app.parse_args(["--check-tokens", "--model", "explicit-model"])
+    assert args.check_tokens is True and args.model == "explicit-model"
+
+
+def test_default_server_context_rejection_is_recorded_without_retries():
+    status, rows = run([{"Abstract": "A"}], lambda r: httpx.Response(400), app.Config())
+    assert status == 1
+    assert rows[0]["reason"] == "chat_http_400"
+    assert rows[0]["attempts"] == {"tokenize": 0, "chat": 1}
+
+
+def test_default_model_not_found_stops_further_requests():
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        return httpx.Response(404)
+
+    status, rows = run([{"Abstract": "A"}, {"Abstract": "B"}], handler, app.Config())
+    assert status == 2 and calls == ["/v1/chat/completions"]
+    assert rows[0]["reason"] == "chat_http_404"
+    assert rows[1]["reason"] == "not_attempted_configuration_error"
 
 
 @pytest.mark.parametrize("raw", [None, [], "broken", 123, True])

@@ -24,9 +24,10 @@ audit. Bad records do not crash processing; malformed JSON files fail clearly."
 **0:55-1:25 - build_payload, Config, and process_records**
 
 "The prompt asks for exactly one sentence and preserves reported side effects
-and uncertainty. Token counting uses the same local server and template settings.
-I reserve 128 output tokens within a 4,096-token context. Requests run one at a
-time. The read inactivity timeout is 90 seconds, so a valid response after
+and uncertainty. By default I use only the chat endpoint provided in the task.
+I limit output to 128 tokens and send one request at a time. The server enforces
+its context limit; an optional token check is available for vLLM deployments.
+The read inactivity timeout is 90 seconds, so a valid response after
 45 seconds succeeds on its first attempt."
 
 **1:25-1:55 - test result and example JSONL**

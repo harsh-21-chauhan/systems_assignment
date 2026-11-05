@@ -69,6 +69,7 @@ class Config:
     max_tokens: int = 128
     backoff_base: float = 2.0
     jitter: float = 1.0
+    check_tokens: bool = False
 
     @property
     def tokenize_endpoint(self) -> str:
@@ -197,7 +198,7 @@ def normalize_record(raw: Any, index: int) -> tuple[Study | None, dict[str, Any]
 
 def build_payload(study: Study, config: Config) -> dict[str, Any]:
     source = {"title": study.title, "abstract": study.abstract}
-    return {
+    payload = {
         "model": config.model,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -210,9 +211,11 @@ def build_payload(study: Study, config: Config) -> dict[str, Any]:
         "max_tokens": config.max_tokens,
         "stream": False,
         "n": 1,
-        "add_generation_prompt": True,
-        "add_special_tokens": False,
     }
+
+    if config.check_tokens:
+        payload.update(add_generation_prompt=True, add_special_tokens=False)
+    return payload
 
 
 def retry_after_seconds(value: str | None) -> float:
@@ -310,23 +313,24 @@ async def summarize(
     config: Config,
 ) -> None:
     payload = build_payload(study, config)
-    token_payload = {
-        key: payload[key]
-        for key in ("model", "messages", "add_generation_prompt", "add_special_tokens")
-    }
-    tokens = await post_json(
-        client, config.tokenize_endpoint, token_payload, config, result["attempts"], "tokenize"
-    )
-    count = tokens.get("count")
-    if type(count) is not int or count <= 0:
-        raise RequestFailure("tokenize_invalid_count", fatal=True)
-    result["prompt_tokens"] = count
-    server_limit = tokens.get("max_model_len", config.context_limit)
-    if type(server_limit) is not int or server_limit <= 0:
-        raise RequestFailure("tokenize_invalid_context_limit", fatal=True)
-    if count + config.max_tokens > min(config.context_limit, server_limit):
-        result.update(status="skipped", reason="context_limit_exceeded")
-        return
+    if config.check_tokens:
+        token_payload = {
+            key: payload[key]
+            for key in ("model", "messages", "add_generation_prompt", "add_special_tokens")
+        }
+        tokens = await post_json(
+            client, config.tokenize_endpoint, token_payload, config, result["attempts"], "tokenize"
+        )
+        count = tokens.get("count")
+        if type(count) is not int or count <= 0:
+            raise RequestFailure("tokenize_invalid_count", fatal=True)
+        result["prompt_tokens"] = count
+        server_limit = tokens.get("max_model_len", config.context_limit)
+        if type(server_limit) is not int or server_limit <= 0:
+            raise RequestFailure("tokenize_invalid_context_limit", fatal=True)
+        if count + config.max_tokens > min(config.context_limit, server_limit):
+            result.update(status="skipped", reason="context_limit_exceeded")
+            return
     data = await post_json(client, config.endpoint, payload, config, result["attempts"], "chat")
     result.update(status="success", reason=None, summary=extract_summary(data))
 
@@ -389,6 +393,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--overwrite", action="store_true", help="replace an existing output file")
     parser.add_argument("--endpoint", default=os.getenv("LLM_ENDPOINT", DEFAULT_ENDPOINT))
     parser.add_argument("--model", default=os.getenv("LLM_MODEL", DEFAULT_MODEL))
+    parser.add_argument(
+        "--check-tokens",
+        action="store_true",
+        help="check prompt length via vLLM /tokenize (optional; requires that route)",
+    )
     parser.add_argument("--connect-timeout", type=positive_float, default=5.0)
     parser.add_argument("--read-timeout", type=positive_float, default=90.0)
     parser.add_argument("--record-deadline", type=positive_float, default=300.0)
@@ -452,6 +461,7 @@ def main(argv: list[str] | None = None) -> int:
             read_timeout=args.read_timeout,
             record_deadline=args.record_deadline,
             max_attempts=args.max_attempts,
+            check_tokens=args.check_tokens,
         )
         with args.output.open("w" if args.overwrite else "x", encoding="utf-8") as output:
             return asyncio.run(run_client(records, output, config))

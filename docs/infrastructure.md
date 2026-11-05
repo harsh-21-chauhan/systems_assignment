@@ -77,6 +77,11 @@ or kernels. Sources: [model card](https://huggingface.co/nvidia/Llama-3.3-70B-In
 These are workload choices, not an NVIDIA certification of this particular
 configuration. [Argument definitions](https://docs.vllm.ai/en/stable/configuration/engine_args/).
 
+The default client uses only the promised chat endpoint and relies on the server
+to reject requests exceeding its context limit. Optionally pass `--check-tokens`
+when `/tokenize` is exposed to check the exact prompt length before generation.
+Server memory limits remain essential in both modes.
+
 The Llama configuration has 80 layers, 8 KV heads, and a 128-wide head. With a
 2-byte cache element, K and V require approximately:
 
