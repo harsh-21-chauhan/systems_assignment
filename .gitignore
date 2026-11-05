@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+.DS_Store
+.env
+.env.*
+!.env.example
+results*.jsonl
+tmp/
+*.mp4
+*.mov
+*.safetensors
