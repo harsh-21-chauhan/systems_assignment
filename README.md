@@ -1,4 +1,5 @@
 # PubMed study summarizer
+## **Demo video:** [Watch the walkthrough on YouTube](https://youtu.be/x6uJ7FPcm54) — a 2-minute-53-second overview of the code, data cleaning, error handling, and local mock-server demonstration.
 
 This Python script reads messy study records, sends usable abstracts to the
 company's local AI, and saves a one-sentence summary for each study.
